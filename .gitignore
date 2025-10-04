@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# uv
+# Note: uv.lock should be committed for reproducibility
+# Only ignore .python-version if you want different versions per user
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Generated data
+calibration_images/
+stereo_output/
+test_images/
+*.pkl
+*.npy
+
+# Point clouds
+*.ply
+*.pcd
+*.xyz
+
+# Images
+*.jpg
+*.jpeg
+*.png
+*.bmp
+*.tiff
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+

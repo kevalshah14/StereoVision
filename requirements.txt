@@ -1,0 +1,8 @@
+opencv-python==4.8.1.78
+numpy==1.24.3
+open3d==0.17.0
+matplotlib==3.7.2
+
+# For Raspberry Pi only (install separately):
+# picamera2==0.3.12
+
