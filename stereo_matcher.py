@@ -46,9 +46,8 @@ class StereoMatcher:
         """Create stereo matcher based on selected algorithm"""
         
         if self.algorithm == "bm":
-            # Block Matching - faster but less accurate
             matcher = cv2.StereoBM_create()
-            matcher.setNumDisparities(16 * 10)  # Must be divisible by 16
+            matcher.setNumDisparities(16 * 10)
             matcher.setBlockSize(15)
             matcher.setPreFilterCap(31)
             matcher.setMinDisparity(0)
@@ -58,10 +57,9 @@ class StereoMatcher:
             matcher.setSpeckleWindowSize(100)
             
         elif self.algorithm == "sgbm":
-            # Semi-Global Block Matching - slower but more accurate
             window_size = 5
             min_disp = 0
-            num_disp = 16 * 10  # Must be divisible by 16
+            num_disp = 16 * 10
             
             matcher = cv2.StereoSGBM_create(
                 minDisparity=min_disp,
@@ -119,15 +117,13 @@ class StereoMatcher:
             rectify: Whether to rectify images first
             
         Returns:
-            numpy.ndarray: Disparity map (normalized to 0-255)
+            numpy.ndarray: Disparity map
         """
-        # Rectify images if needed
         if rectify:
             left_rect, right_rect = self.rectify_images(left_img, right_img)
         else:
             left_rect, right_rect = left_img, right_img
         
-        # Convert to grayscale if needed
         if len(left_rect.shape) == 3:
             left_gray = cv2.cvtColor(left_rect, cv2.COLOR_BGR2GRAY)
             right_gray = cv2.cvtColor(right_rect, cv2.COLOR_BGR2GRAY)
@@ -135,17 +131,14 @@ class StereoMatcher:
             left_gray = left_rect
             right_gray = right_rect
         
-        # Compute disparity
         disparity = self.matcher.compute(left_gray, right_gray)
-        
-        # Convert to float32
         disparity = disparity.astype(np.float32) / 16.0
         
         return disparity
     
     def compute_depth_map(self, disparity):
         """
-        Convert disparity map to depth map
+        Convert disparity map to depth map using Q matrix
         
         Args:
             disparity: Disparity map
@@ -153,21 +146,15 @@ class StereoMatcher:
         Returns:
             numpy.ndarray: Depth map in mm
         """
-        # Get focal length and baseline from calibration
         Q = self.calibration['Q']
-        
-        # Avoid division by zero
         disparity_safe = np.where(disparity > 0, disparity, 0.1)
-        
-        # Calculate depth: depth = (focal_length * baseline) / disparity
-        # Using Q matrix: Z = Q[2,3] / (disparity + Q[3,3])
         depth = Q[2, 3] / (disparity_safe + Q[3, 3])
         
         return depth
     
     def normalize_disparity(self, disparity):
         """
-        Normalize disparity map for visualization
+        Normalize disparity map to 0-255 range for visualization
         
         Args:
             disparity: Raw disparity map
@@ -175,11 +162,9 @@ class StereoMatcher:
         Returns:
             numpy.ndarray: Normalized disparity (0-255, uint8)
         """
-        # Remove negative disparities
         disparity_vis = disparity.copy()
         disparity_vis[disparity_vis < 0] = 0
         
-        # Normalize to 0-255
         min_disp = np.min(disparity_vis[disparity_vis > 0]) if np.any(disparity_vis > 0) else 0
         max_disp = np.max(disparity_vis)
         
@@ -208,7 +193,7 @@ class StereoMatcher:
     
     def process_stereo_pair(self, left_img, right_img, save_dir=None, prefix="stereo"):
         """
-        Complete stereo processing pipeline
+        Process stereo pair through complete pipeline
         
         Args:
             left_img: Left camera image
@@ -219,16 +204,9 @@ class StereoMatcher:
         Returns:
             dict: Processing results
         """
-        # Rectify images
         left_rect, right_rect = self.rectify_images(left_img, right_img)
-        
-        # Compute disparity
         disparity = self.compute_disparity(left_img, right_img, rectify=True)
-        
-        # Compute depth map
         depth_map = self.compute_depth_map(disparity)
-        
-        # Visualizations
         disparity_vis = self.visualize_disparity(disparity)
         
         results = {
@@ -240,7 +218,6 @@ class StereoMatcher:
             'Q_matrix': self.calibration['Q']
         }
         
-        # Save results if requested
         if save_dir is not None:
             save_dir = Path(save_dir)
             save_dir.mkdir(parents=True, exist_ok=True)
@@ -248,8 +225,6 @@ class StereoMatcher:
             cv2.imwrite(str(save_dir / f"{prefix}_left_rectified.jpg"), left_rect)
             cv2.imwrite(str(save_dir / f"{prefix}_right_rectified.jpg"), right_rect)
             cv2.imwrite(str(save_dir / f"{prefix}_disparity.jpg"), disparity_vis)
-            
-            # Save raw disparity as numpy array
             np.save(str(save_dir / f"{prefix}_disparity.npy"), disparity)
             np.save(str(save_dir / f"{prefix}_depth.npy"), depth_map)
             

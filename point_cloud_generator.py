@@ -43,37 +43,27 @@ class PointCloudGenerator:
         
         Args:
             disparity: Disparity map
-            left_image: Left camera image (for color)
-            min_disparity: Minimum disparity threshold (filter out invalid points)
-            max_depth: Maximum depth in mm (filter distant points)
+            left_image: Left camera image for color information
+            min_disparity: Minimum disparity threshold
+            max_depth: Maximum depth in mm
             
         Returns:
             open3d.geometry.PointCloud: Generated point cloud
         """
-        # Create mask for valid disparities
         mask = (disparity > min_disparity) & (disparity < 1000)
-        
-        # Reproject to 3D using Q matrix
         points_3d = cv2.reprojectImageTo3D(disparity, self.Q)
-        
-        # Extract valid points
         valid_points = points_3d[mask]
         
-        # Filter by depth
         depth_mask = (valid_points[:, 2] > 0) & (valid_points[:, 2] < max_depth)
         valid_points = valid_points[depth_mask]
         
-        # Get corresponding colors
         if len(left_image.shape) == 3:
             colors = left_image[mask][depth_mask]
-            # Convert BGR to RGB and normalize
             colors = cv2.cvtColor(colors.reshape(-1, 1, 3), cv2.COLOR_BGR2RGB).reshape(-1, 3) / 255.0
         else:
-            # Grayscale image
             gray_colors = left_image[mask][depth_mask]
             colors = np.stack([gray_colors] * 3, axis=-1) / 255.0
         
-        # Create Open3D point cloud
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(valid_points)
         pcd.colors = o3d.utility.Vector3dVector(colors)
@@ -84,12 +74,12 @@ class PointCloudGenerator:
     
     def filter_point_cloud(self, pcd, voxel_size=None, nb_neighbors=20, std_ratio=2.0):
         """
-        Filter and clean point cloud
+        Apply downsampling and outlier removal to point cloud
         
         Args:
             pcd: Input point cloud
-            voxel_size: Voxel size for downsampling (None to skip)
-            nb_neighbors: Number of neighbors for statistical outlier removal
+            voxel_size: Voxel size for downsampling
+            nb_neighbors: Number of neighbors for outlier removal
             std_ratio: Standard deviation ratio for outlier removal
             
         Returns:
@@ -97,12 +87,10 @@ class PointCloudGenerator:
         """
         pcd_filtered = pcd
         
-        # Downsample if voxel size provided
         if voxel_size is not None:
             pcd_filtered = pcd_filtered.voxel_down_sample(voxel_size)
             print(f"Downsampled to {len(pcd_filtered.points)} points (voxel size: {voxel_size})")
         
-        # Remove statistical outliers
         pcd_filtered, ind = pcd_filtered.remove_statistical_outlier(
             nb_neighbors=nb_neighbors,
             std_ratio=std_ratio
@@ -138,15 +126,13 @@ class PointCloudGenerator:
         Args:
             pcd: Point cloud to save
             filename: Output filename
-            format: File format ('ply', 'pcd', 'xyz', 'xyzrgb', 'pts')
+            format: File format
         """
         filename = Path(filename)
         
-        # Ensure correct extension
         if not filename.suffix:
             filename = filename.with_suffix(f".{format}")
         
-        # Save point cloud
         o3d.io.write_point_cloud(str(filename), pcd)
         print(f"Saved point cloud to {filename}")
     
@@ -175,10 +161,10 @@ class PointCloudGenerator:
     
     def create_mesh_from_point_cloud(self, pcd, method='poisson', depth=9):
         """
-        Create mesh from point cloud
+        Generate triangle mesh from point cloud
         
         Args:
-            pcd: Input point cloud (must have normals)
+            pcd: Input point cloud with normals
             method: Meshing method ('poisson' or 'ball_pivoting')
             depth: Depth parameter for Poisson reconstruction
             
@@ -195,17 +181,13 @@ class PointCloudGenerator:
             mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
                 pcd, depth=depth
             )
-            
-            # Remove low density vertices
             vertices_to_remove = densities < np.quantile(densities, 0.1)
             mesh.remove_vertices_by_mask(vertices_to_remove)
             
         elif method == 'ball_pivoting':
-            # Estimate radius for ball pivoting
             distances = pcd.compute_nearest_neighbor_distance()
             avg_dist = np.mean(distances)
             radius = 3 * avg_dist
-            
             radii = [radius, radius * 2]
             mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(
                 pcd, o3d.utility.DoubleVector(radii)
@@ -221,15 +203,15 @@ class PointCloudGenerator:
                                      filter_cloud=True, estimate_normals=False,
                                      output_file=None, visualize=False):
         """
-        Complete pipeline from disparity to point cloud
+        Process disparity map into filtered point cloud
         
         Args:
             disparity: Disparity map
             left_image: Left camera image
-            filter_cloud: Whether to filter the point cloud
-            estimate_normals: Whether to estimate normals
-            output_file: Path to save point cloud (None to skip saving)
-            visualize: Whether to visualize result
+            filter_cloud: Apply filtering and downsampling
+            estimate_normals: Compute surface normals
+            output_file: Path to save point cloud
+            visualize: Display point cloud viewer
             
         Returns:
             open3d.geometry.PointCloud: Generated point cloud
@@ -237,25 +219,20 @@ class PointCloudGenerator:
         print("\nGenerating point cloud from stereo data...")
         print("=" * 60)
         
-        # Generate point cloud
         pcd = self.disparity_to_point_cloud(disparity, left_image)
         
-        # Filter if requested
         if filter_cloud:
             print("\nFiltering point cloud...")
             pcd = self.filter_point_cloud(pcd, voxel_size=5, nb_neighbors=20, std_ratio=2.0)
         
-        # Estimate normals if requested
         if estimate_normals:
             print("\nEstimating normals...")
             pcd = self.estimate_normals(pcd)
         
-        # Save if requested
         if output_file is not None:
             print("\nSaving point cloud...")
             self.save_point_cloud(pcd, output_file)
         
-        # Visualize if requested
         if visualize:
             self.visualize_point_cloud(pcd)
         

@@ -23,11 +23,8 @@ class StereoCalibrator:
         """
         self.chessboard_size = chessboard_size
         self.square_size = square_size
-        
-        # Termination criteria for corner refinement
         self.criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
         
-        # Prepare object points
         self.objp = np.zeros((chessboard_size[0] * chessboard_size[1], 3), np.float32)
         self.objp[:, :2] = np.mgrid[0:chessboard_size[0], 0:chessboard_size[1]].T.reshape(-1, 2)
         self.objp *= square_size
@@ -46,7 +43,6 @@ class StereoCalibrator:
         ret, corners = cv2.findChessboardCorners(gray, self.chessboard_size, None)
         
         if ret:
-            # Refine corner positions
             corners = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), self.criteria)
         
         return ret, corners
@@ -78,15 +74,11 @@ class StereoCalibrator:
         
         print(f"Found {len(left_images)} stereo pairs for calibration")
         
-        # Arrays to store object points and image points
-        objpoints = []  # 3D points in real world space
-        imgpoints_left = []  # 2D points in left image plane
-        imgpoints_right = []  # 2D points in right image plane
-        
+        objpoints = []
+        imgpoints_left = []
+        imgpoints_right = []
         valid_pairs = 0
         image_size = None
-        
-        # Process each image pair
         for left_path, right_path in zip(left_images, right_images):
             left_img = cv2.imread(left_path)
             right_img = cv2.imread(right_path)
@@ -94,7 +86,6 @@ class StereoCalibrator:
             if image_size is None:
                 image_size = (left_img.shape[1], left_img.shape[0])
             
-            # Find chessboard corners
             ret_left, corners_left = self.find_chessboard_corners(left_img)
             ret_right, corners_right = self.find_chessboard_corners(right_img)
             
@@ -112,19 +103,16 @@ class StereoCalibrator:
         
         print(f"\nCalibrating with {valid_pairs} valid image pairs...")
         
-        # Calibrate left camera
         print("Calibrating left camera...")
         ret_left, K_left, dist_left, rvecs_left, tvecs_left = cv2.calibrateCamera(
             objpoints, imgpoints_left, image_size, None, None
         )
         
-        # Calibrate right camera
         print("Calibrating right camera...")
         ret_right, K_right, dist_right, rvecs_right, tvecs_right = cv2.calibrateCamera(
             objpoints, imgpoints_right, image_size, None, None
         )
         
-        # Stereo calibration
         print("Performing stereo calibration...")
         flags = cv2.CALIB_FIX_INTRINSIC
         
@@ -136,14 +124,12 @@ class StereoCalibrator:
         
         print(f"\nStereo calibration RMS error: {ret_stereo:.4f}")
         
-        # Stereo rectification
         print("Computing rectification parameters...")
         R1, R2, P1, P2, Q, roi_left, roi_right = cv2.stereoRectify(
             K_left, dist_left, K_right, dist_right,
             image_size, R, T, alpha=0
         )
         
-        # Compute rectification maps
         map_left_x, map_left_y = cv2.initUndistortRectifyMap(
             K_left, dist_left, R1, P1, image_size, cv2.CV_32FC1
         )
@@ -151,8 +137,6 @@ class StereoCalibrator:
         map_right_x, map_right_y = cv2.initUndistortRectifyMap(
             K_right, dist_right, R2, P2, image_size, cv2.CV_32FC1
         )
-        
-        # Package calibration parameters
         calibration_params = {
             'image_size': image_size,
             'K_left': K_left,
@@ -177,19 +161,16 @@ class StereoCalibrator:
             'rms_error': ret_stereo
         }
         
-        # Save calibration parameters
         with open(output_file, 'wb') as f:
             pickle.dump(calibration_params, f)
         
         print(f"\n✓ Calibration parameters saved to {output_file}")
-        
-        # Print summary
         self._print_calibration_summary(calibration_params)
         
         return calibration_params
     
     def _print_calibration_summary(self, params):
-        """Print calibration summary"""
+        """Display calibration results"""
         baseline = np.linalg.norm(params['T'])
         
         print("\n" + "=" * 60)

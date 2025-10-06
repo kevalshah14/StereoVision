@@ -35,6 +35,9 @@ wheels/
 calibration_images/
 stereo_output/
 test_images/
+middeval3_output/
+baseline_*/
+temp_calib_*.pkl
 *.pkl
 *.npy
 
@@ -43,12 +46,17 @@ test_images/
 *.pcd
 *.xyz
 
-# Images
+# Images (except MiddEval3 dataset)
 *.jpg
 *.jpeg
 *.png
 *.bmp
 *.tiff
+
+# Allow MiddEval3 dataset images
+!MiddEval3/**/*.png
+!MiddEval3/**/*.jpg
+!MiddEval3/**/*.txt
 
 # IDE
 .vscode/

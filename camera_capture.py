@@ -1,7 +1,6 @@
 """
-Dual Camera Capture Module for Raspberry Pi Camera Module 3
-This script handles capturing synchronized images from two Raspberry Pi cameras
-Also supports standard USB/webcams via OpenCV for development on non-Pi systems
+Dual Camera Capture Module
+Supports Raspberry Pi Camera Module 3 and standard USB/webcams
 """
 
 import cv2
@@ -11,7 +10,6 @@ from pathlib import Path
 import platform
 import sys
 
-# Try to import picamera2 (Raspberry Pi only)
 try:
     from picamera2 import Picamera2
     PICAMERA2_AVAILABLE = True
@@ -19,7 +17,6 @@ except ImportError:
     PICAMERA2_AVAILABLE = False
     print("Note: picamera2 not available - using OpenCV VideoCapture instead")
 
-# Detect if we're on Raspberry Pi
 def is_raspberry_pi():
     """Check if running on Raspberry Pi"""
     try:
@@ -62,15 +59,11 @@ class DualCameraCapture:
         for idx in self.camera_indices:
             try:
                 cam = Picamera2(idx)
-                
-                # Configure camera
                 config = cam.create_still_configuration(
                     main={"size": self.resolution, "format": "RGB888"}
                 )
                 cam.configure(config)
                 cam.start()
-                
-                # Allow camera to warm up
                 time.sleep(2)
                 
                 self.cameras.append(cam)
@@ -81,7 +74,7 @@ class DualCameraCapture:
                 raise
     
     def _setup_opencv_cameras(self):
-        """Setup cameras using OpenCV VideoCapture (for USB/webcams)"""
+        """Setup cameras using OpenCV VideoCapture"""
         for idx in self.camera_indices:
             try:
                 cam = cv2.VideoCapture(idx)
@@ -89,15 +82,11 @@ class DualCameraCapture:
                 if not cam.isOpened():
                     raise RuntimeError(f"Could not open camera {idx}")
                 
-                # Set resolution
                 cam.set(cv2.CAP_PROP_FRAME_WIDTH, self.resolution[0])
                 cam.set(cv2.CAP_PROP_FRAME_HEIGHT, self.resolution[1])
                 
-                # Verify actual resolution
                 actual_width = int(cam.get(cv2.CAP_PROP_FRAME_WIDTH))
                 actual_height = int(cam.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                
-                # Allow camera to warm up
                 time.sleep(1)
                 
                 self.cameras.append(cam)
@@ -118,15 +107,11 @@ class DualCameraCapture:
             raise RuntimeError("Both cameras must be initialized")
         
         if self.use_picamera:
-            # Capture from picamera2
             left_image = self.cameras[0].capture_array()
             right_image = self.cameras[1].capture_array()
-            
-            # Convert from RGB to BGR for OpenCV
             left_image = cv2.cvtColor(left_image, cv2.COLOR_RGB2BGR)
             right_image = cv2.cvtColor(right_image, cv2.COLOR_RGB2BGR)
         else:
-            # Capture from OpenCV VideoCapture
             ret1, left_image = self.cameras[0].read()
             ret2, right_image = self.cameras[1].read()
             
